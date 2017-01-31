@@ -44,7 +44,7 @@ def VaspExceptionHandler(calc, exc_type, exc_value, exc_traceback):
     elif exc_type == PropertyNotImplementedError and exc_value.args[0] == 'stress':
         return np.array([None, None, None, None, None, None])    
 
-    print('Unhandled exception in Vasp')
+    print('Unhandled Vasp exception in {0}'.format(calc.directory))
     import traceback
     import sys
     traceback.print_exception(exc_type, exc_value, exc_traceback,

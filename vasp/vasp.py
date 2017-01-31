@@ -32,6 +32,7 @@ from . import runner
 from . import bader
 from . import bandstructure
 from . import elastic_moduli
+from . import plotters
 
 
 def tryit(func):
