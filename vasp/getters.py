@@ -173,8 +173,9 @@ def get_fermi_level(self):
 def get_ados(self, atom_index, orbital, spin=1, efermi=None):
     """Return Atom projected DOS for atom index, orbital and spin.
 
+    # This will only work for lorbit=10
     orbital: string ['s', 'p', 'd']
-
+   
     If efermi is not None, use this value as 0.0.
 
     :returns: (energies, ados)
@@ -186,6 +187,17 @@ def get_ados(self, atom_index, orbital, spin=1, efermi=None):
                            'vasprun.xml')) as f:
         tree = ElementTree.parse(f)
 
+    try:
+        lorbit = self.parameters['lorbit']
+        if lorbit != 11:
+            orbitals = ['s', 'p', 'd']
+        else:
+            orbitals = ['s', 'py', 'pz', 'px',
+                        'dxy', 'dyz', 'dz2', 'dxz',
+                        'dx2']
+    except:
+        orbitals = ['s', 'p', 'd']
+        
     path = "/".join(['calculation', 'dos',
                      'partial',
                      'array',
@@ -210,8 +222,24 @@ def get_ados(self, atom_index, orbital, spin=1, efermi=None):
         efermi = 0.0
 
     energy = np.array([x[0] for x in results]) - efermi
-    ados = np.array([x['spd'.index(orbital) + 1] for x in results])
-
+    if lorbit != 11:
+        ados = np.array([x[orbitals.index(orbital) + 1] for x in results])
+    else:
+        if orbital in orbitals:
+            # for individual orbitals, i.e., px, py, pz, dxy, dyz, dxz, dz2, dx2
+            ados = np.array([x[orbitals.index(orbital) + 1] for x in results])
+        elif orbital=='p':
+            # For all p orbitals
+            ados = np.array([x[orbitals.index('py') + 1] for x in results]) \
+                   + np.array([x[orbitals.index('pz') + 1] for x in results]) \
+                   + np.array([x[orbitals.index('px') + 1] for x in results])
+        elif orbital=='d':
+            # For all d orbitals
+            ados = np.array([x[orbitals.index('dxy') + 1] for x in results]) \
+                   + np.array([x[orbitals.index('dyz') + 1] for x in results]) \
+                   + np.array([x[orbitals.index('dz2') + 1] for x in results]) \
+                   + np.array([x[orbitals.index('dxz') + 1] for x in results]) \                   
+                   + np.array([x[orbitals.index('dx2') + 1] for x in results])
     return [energy, ados]
 
 
