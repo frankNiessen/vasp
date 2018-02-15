@@ -230,16 +230,16 @@ def get_ados(self, atom_index, orbital, spin=1, efermi=None):
             ados = np.array([x[orbitals.index(orbital) + 1] for x in results])
         elif orbital=='p':
             # For all p orbitals
-            ados = np.array([x[orbitals.index('py') + 1] for x in results]) \
-                   + np.array([x[orbitals.index('pz') + 1] for x in results]) \
-                   + np.array([x[orbitals.index('px') + 1] for x in results])
+            ados = np.array([x[orbitals.index('py') + 1] for x in results]) + \
+                   np.array([x[orbitals.index('pz') + 1] for x in results]) + \
+                   np.array([x[orbitals.index('px') + 1] for x in results])
         elif orbital=='d':
             # For all d orbitals
-            ados = np.array([x[orbitals.index('dxy') + 1] for x in results]) \
-                   + np.array([x[orbitals.index('dyz') + 1] for x in results]) \
-                   + np.array([x[orbitals.index('dz2') + 1] for x in results]) \
-                   + np.array([x[orbitals.index('dxz') + 1] for x in results]) \                   
-                   + np.array([x[orbitals.index('dx2') + 1] for x in results])
+            ados = np.array([x[orbitals.index('dxy') + 1] for x in results]) + \
+                   np.array([x[orbitals.index('dyz') + 1] for x in results]) + \
+                   np.array([x[orbitals.index('dz2') + 1] for x in results]) + \
+                   np.array([x[orbitals.index('dxz') + 1] for x in results]) + \                   
+                   np.array([x[orbitals.index('dx2') + 1] for x in results])
     return [energy, ados]
 
 
