@@ -1,22 +1,21 @@
-"""Calculate bandstructure diagrams in vasp"""
-from . import vasp
+"""Calculate bandstructure diagrams in jasp"""
+from .vasp import Vasp
 from .monkeypatch import monkeypatch_class
+from ase.dft import DOS
 
 import os
 import numpy as np
 
 # turn off if in the queue.
+# # noqa means for pep8 to ignore the line.
 if 'PBS_O_WORKDIR' in os.environ:
-    import matplotlib
+    import matplotlib  # noqa
     matplotlib.use('Agg')
 
-# TODO
-
-import matplotlib.pyplot as plt
-from ase.dft import DOS
+import matplotlib.pyplot as plt  # noqa
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def get_bandstructure(self,
                       kpts_path=None,
                       kpts_nintersections=10,
@@ -47,7 +46,7 @@ def get_bandstructure(self,
     wd = os.path.join(self.directory, 'bandstructure')
     self.clone(wd)
 
-    calc = vasp.Vasp(wd)
+    calc = Vasp(wd)
     calc.set(kpts=kpts,
              kpts_nintersections=kpts_nintersections,
              reciprocal=True,

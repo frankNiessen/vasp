@@ -8,12 +8,17 @@ monkey-patched onto the Vasp class as if it were defined in vasp.py.
 """
 import os
 import numpy as np
+<<<<<<< HEAD
 from . import vasp
 from .monkeypatch import monkeypatch_class
+=======
+from .vasp import Vasp, log
+from vasp.monkeypatch import monkeypatch_class
+>>>>>>> upstream/python3
 from ase.calculators.calculator import FileIOCalculator
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def write_input(self, atoms=None, properties=None, system_changes=None):
     """Writes all input files required for a calculation."""
     # this creates the directory if needed
@@ -28,7 +33,7 @@ def write_input(self, atoms=None, properties=None, system_changes=None):
     self.write_db()
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def write_db(self,
              fname=None,
              atoms=None,
@@ -112,10 +117,11 @@ def write_db(self,
                  'resort': self.resort,
                  'parameters': self.parameters,
                  'ppp_list': self.ppp_list})
+    log.debug('data = {}'.format(data))
 
     # Only relevant for writing single entry DB file.
     if overwrite:
-
+        log.debug('overwriting db')
         if os.path.exists(fname):
             # Get any current data and keywords.
             with connect(fname) as db:
@@ -123,7 +129,7 @@ def write_db(self,
                     dbatoms = db.get_atoms(id=1)
                     data.update(dbatoms.data)
                     keys.update(dbatoms.key_value_pairs)
-                except AttributeError:
+                except (AttributeError, KeyError):
                     pass
             os.unlink(fname)
 
@@ -134,12 +140,19 @@ def write_db(self,
             if k in data:
                 del data[k]
 
+    log.debug('writing db')
+
     # Generate the db file
-    with connect(fname) as db:
+    with connect(fname, use_lock_file=False) as db:
+        log.debug('db handle: {}'.format(db))
         db.write(atoms, key_value_pairs=keys, data=data)
 
+    log.debug('Done with db')
 
-@monkeypatch_class(vasp.Vasp)
+    return None
+
+
+@monkeypatch_class(Vasp)
 def write_poscar(self, fname=None):
     """Write the POSCAR file."""
     if fname is None:
@@ -151,7 +164,7 @@ def write_poscar(self, fname=None):
                symbol_count=self.symbol_count)
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def write_incar(self, incar=None):
     """Writes out the INCAR file.
 
@@ -169,12 +182,20 @@ def write_incar(self, incar=None):
 
     with open(incar, 'w') as f:
         f.write('INCAR created by Atomic Simulation Environment\n')
+<<<<<<< HEAD
         for key, val in list(d.items()):
+=======
+        for key, val in d.items():
+>>>>>>> upstream/python3
             key = ' ' + key.upper()
             if val is None:
                 # Do not write out None values
                 # It is how we delete tags
                 pass
+            # I am very unhappy about this special case.
+            elif key == ' RWIGS':
+                s = ' '.join([str(val[x[0]]) for x in self.ppp_list])
+                f.write('{} = {}\n'.format(key, s))
             elif isinstance(val, bool):
                 s = '.TRUE.' if val else '.FALSE.'
                 f.write('{} = {}\n'.format(key, s))
@@ -185,7 +206,7 @@ def write_incar(self, incar=None):
                 f.write('{} = {}\n'.format(key, val))
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def write_kpoints(self, fname=None):
     """Write out the KPOINTS file.
 
@@ -288,7 +309,7 @@ def write_kpoints(self, fname=None):
                 f.write('0.0 0.0 0.0\n')
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def write_potcar(self, fname=None):
     """Writes the POTCAR file.
 
@@ -303,3 +324,4 @@ def write_potcar(self, fname=None):
             pfile = os.path.join(os.environ['VASP_PP_PATH'], pfile)
             with open(pfile, 'rb') as f:
                 potfile.write(f.read())
+                log.debug('Added pfile')

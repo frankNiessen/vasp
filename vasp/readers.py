@@ -3,10 +3,10 @@
 import os
 import re
 import numpy as np
-from . import vasp
-from .vasp import log
+import vasp
+from .vasp import log, Vasp
 from ase.calculators.calculator import Parameters
-from . import exceptions
+import vasp.exceptions
 from .monkeypatch import monkeypatch_class
 import ase
 
@@ -26,7 +26,7 @@ def isfloat(s):
         return False
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_incar(self, fname=None):
     """Read fname (defaults to INCAR).
 
@@ -95,7 +95,7 @@ def read_incar(self, fname=None):
     return params
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_kpoints(self, fname=None):
     """Read KPOINTS file.
 
@@ -135,10 +135,7 @@ def read_kpoints(self, fname=None):
                                       'for restart.')
         if ktype == 'g':
             line5 = np.array([float(lines[4].split()[i]) for i in range(3)])
-            if (line5 == np.array([0.0, 0.0, 0.0])).all():
-                params['gamma'] = True
-            else:
-                params['gamma'] = line5
+            params['gamma'] = list(line5)
 
         kpts = [int(lines[3].split()[i]) for i in range(3)]
         params['kpts'] = kpts
@@ -176,7 +173,7 @@ def read_kpoints(self, fname=None):
     return params
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_potcar(self, fname=None):
     """Read the POTCAR file to get the pp and setups.
 
@@ -222,7 +219,7 @@ def read_potcar(self, fname=None):
     return params
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_atoms(self):
     """Read the final atoms object from vasprun.xml
     and return the user defined order (unsort) if able.
@@ -230,7 +227,7 @@ def read_atoms(self):
     """
     atoms = None
     resort = self.get_db('resort')
-    # for a new calculation resort will be None
+    # for a new or pre-vasp calculation resort will be None
     if resort is not None:
         resort = list(resort)
         from ase.db import connect
@@ -240,21 +237,25 @@ def read_atoms(self):
     else:
         tags = None
 
+    log.debug('resort = {}'.format(resort))
+
     vasprun_xml = os.path.join(self.directory,
                                'vasprun.xml')
     if os.path.exists(vasprun_xml):
         atoms = ase.io.read(vasprun_xml)
-        atoms = atoms[resort]
+        if resort is not None:
+            atoms = atoms[resort]
         atoms.set_tags(tags)
     elif os.path.exists(os.path.join(self.directory, 'POSCAR')):
         atoms = ase.io.read(os.path.join(self.directory,
                                          'POSCAR'))
-        atoms = atoms[resort]
+        if resort is not None:
+            atoms = atoms[resort]
         atoms.set_tags(tags)
     return atoms
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read(self, restart=None):
     """Read the files in a calculation if they exist.
 
@@ -268,7 +269,8 @@ def read(self, restart=None):
     log.debug('Reading {}'.format(self.directory))
 
     # NEB is special and handled separately
-    if self.get_state() == vasp.Vasp.NEB:
+    if self.get_state() == Vasp.NEB:
+        log.debug('About to read an NEB')
         self.read_neb()
         return
 
@@ -288,14 +290,14 @@ def read(self, restart=None):
     # ones with the largest number of keys are compared first. This is
     # to avoid false matches of xc's with smaller number of equal
     # keys.
-    xc_keys = sorted(vasp.Vasp.xc_defaults,
-                     key=lambda k: len(vasp.Vasp.xc_defaults[k]),
+    xc_keys = sorted(Vasp.xc_defaults,
+                     key=lambda k: len(Vasp.xc_defaults[k]),
                      reverse=True)
 
     for ex in xc_keys:
         pd = {k: self.parameters.get(k, None)
-              for k in vasp.Vasp.xc_defaults[ex]}
-        if pd == vasp.Vasp.xc_defaults[ex]:
+              for k in Vasp.xc_defaults[ex]}
+        if pd == Vasp.xc_defaults[ex]:
             self.parameters['xc'] = ex
             break
 
@@ -320,6 +322,21 @@ def read(self, restart=None):
 
         self.parameters['ldau_luj'] = ldau_luj
 
+    # rebuild the list to a dictionary. It gets read in at a time
+    # where there are no atoms.
+    if 'rwigs' in self.parameters:
+        with open(self.potcar) as f:
+            lines = f.readlines()
+
+        # symbols are in the # FIXME: first line of each potcar
+        symbols = [lines[0].split()[1]]
+        for i, line in enumerate(lines):
+            if 'End of Dataset' in line and i != len(lines) - 1:
+                symbols += [lines[i + 1].split()[1]]
+
+        szip = list(zip(symbols, self.parameters['rwigs']))
+        self.parameters['rwigs'] = dict(szip)
+
     # Now get the atoms
     atoms = self.read_atoms()
     self.atoms = atoms
@@ -335,7 +352,7 @@ def read(self, restart=None):
     self.read_results()
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_results(self):
     """Read energy, forces, stress, magmom and magmoms from output file.
 
@@ -346,11 +363,11 @@ def read_results(self):
     state = self.get_state()
     log.debug('state: {}. Reading results in {}.'.format(state,
                                                          self.directory))
-    if state == vasp.Vasp.NEB:
+    if state == Vasp.NEB:
         # This is handled in self.read()
         return
 
-    if state != vasp.Vasp.FINISHED:
+    if state != Vasp.FINISHED:
         self.results = {}
     else:
         # regular calculation that is finished
@@ -370,8 +387,8 @@ def read_results(self):
             stress = atoms.get_stress()
         except NotImplementedError:
             # e.g. ISIF=0, stress is not computed
-            stress = None
-            
+            stress = np.array([np.nan] * 6)
+
         if self.atoms is None:
             self.sort_atoms(atoms)
 
@@ -409,21 +426,33 @@ def read_results(self):
         log.debug('Results at end: {}'.format(self.results))
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def read_neb(self):
     """Read an NEB calculator."""
+    log.debug('Reading an NEB')
     import glob
-    atoms = []
-    atoms += [ase.io.read('{}/00/POSCAR'.format(self.directory))]
-    for p in glob.glob('{}/0[0-9]/CONTCAR'.format(self.directory)):
-        atoms += [ase.io.read(p)]
-    atoms += [ase.io.read('{}/0{}/POSCAR'.format(self.directory,
-                                                 len(atoms)))]
-    self.neb = atoms
-    self.parameters = {}
-    self.set(images=(len(atoms) - 2))
-    self.atoms = atoms[0].copy()
+    images = []
+    #images += [ase.io.read('{}/00/POSCAR'.format(self.directory))]
+    #log.debug(glob.glob('{}/0[0-9]/CONTCAR'.format(self.directory)))
+    for p in glob.glob('{}/0[0-9]*'.format(self.directory)):
+        log.debug('Looking at {}'.format(p))
+        CONTCAR = os.path.join(p, 'CONTCAR')
+        POSCAR = os.path.join(p, 'POSCAR')
+        if os.path.exists(CONTCAR):
+            log.debug('Adding image {}'.format(CONTCAR))
+            images += [ase.io.read(CONTCAR)]
+        elif os.path.exists(POSCAR):
+            images += [ase.io.read(POSCAR)]
 
+    log.debug('We got these images: {}'.format(images))
+
+    self.neb = images
+    self.parameters = {}
+    self.set(images=(len(images) - 2))
+    self.atoms = images[0].copy()
+    self.atoms.set_calculator(self)
+    for a in self.neb:
+        a.set_calculator(self)
     if os.path.exists(self.incar):
         self.parameters.update(self.read_incar())
     if os.path.exists(self.potcar):
@@ -432,13 +461,14 @@ def read_neb(self):
         self.parameters.update(self.read_kpoints())
 
     # Update the xc functional
-    xc_keys = sorted(vasp.Vasp.xc_defaults,
-                     key=lambda k: len(vasp.Vasp.xc_defaults[k]),
+    xc_keys = sorted(Vasp.xc_defaults,
+                     key=lambda k: len(Vasp.xc_defaults[k]),
                      reverse=True)
 
     for ex in xc_keys:
         pd = {k: self.parameters.get(k, None)
-              for k in vasp.Vasp.xc_defaults[ex]}
-        if pd == vasp.Vasp.xc_defaults[ex]:
+              for k in Vasp.xc_defaults[ex]}
+        if pd == Vasp.xc_defaults[ex]:
             self.parameters['xc'] = ex
             break
+    log.debug('Done reading neb.')

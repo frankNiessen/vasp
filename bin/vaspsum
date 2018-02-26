@@ -17,7 +17,7 @@ parser.add_argument('--describe', action='store_true',
                     help='describe parameters')
 
 parser.add_argument('--vasp', action='store_true',
-                    help = 'prints vasp representation')
+                    help = 'prints vasp input files')
 
 parser.add_argument('-j', '--json', action='store_true',
                     help = 'prints json representation')
@@ -38,9 +38,27 @@ parser.add_argument('-t', '--plot-trajectory', action='store_true',
 parser.add_argument('-p', '--plot', action='store_true',
                     help = 'plot in ag')
 
+parser.add_argument('-m', '--mongo', action='store_true',
+                    help='Add to mongo db')
+
+parser.add_argument('--mongo-rm', action='store_true',
+                    help='Remove from mongo.')
+
+parser.add_argument('--add-tags', nargs='+',
+                    help='Add tags to mongo-entry')
+
+parser.add_argument('--remove-tags', nargs='+',
+                    help='Remove tags from mongo-entry')
+
+parser.add_argument('--show-db', action='store_true',
+                    help='Show entry in mongo db')
+
+
+
 args = parser.parse_args()
 
 if args.debug:
+    import logging
     debug = logging.DEBUG
 else:
     debug = None
@@ -49,6 +67,7 @@ for d in args.dirs:
     if not os.path.isdir(d):
         raise Exception('{0} does not exist!'.format(d))
 
+    print(d)
     calc = Vasp(d, debug=debug)
 
     # plot trajectory
@@ -69,3 +88,59 @@ for d in args.dirs:
         calc.describe(long=args.verbose)
     else:
         print(calc)
+
+
+        # add to mongo
+    if args.mongo:
+        from vasp.mongo import MongoDatabase
+        db = MongoDatabase()
+        if db.find({"calculator.path": calc.directory}).count() == 0:
+            atoms = calc.get_atoms()
+            iid = db.write(db.mongo_doc(atoms))
+            print('Added entry {}'.format(iid))
+
+    if args.add_tags:
+        from vasp.mongo import MongoDatabase
+        db = MongoDatabase()
+
+        if db.find({"calculator.path": calc.directory}).count() == 0:
+            atoms = calc.get_atoms()
+            iid = db.write(db.mongo_doc(atoms), tags=args.add_tags)
+            print('Added entry {}'.format(iid))
+        else:
+            db.collection.update({"calculator.path": calc.directory},
+                                 {'$addToSet': {'tags': {'$each': args.add_tags}}})
+
+
+    if args.remove_tags:
+        from vasp.mongo import MongoDatabase
+        db = MongoDatabase()
+
+        if db.find({"calculator.path": calc.directory}).count() == 0:
+            atoms = calc.get_atoms()
+            iid = db.write(db.mongo_doc(atoms))
+            print('Added entry {}'.format(iid))
+        else:
+            db.collection.update({"calculator.path": calc.directory},
+                                 {'$pullAll': {'tags': args.remove_tags}})
+
+
+    if args.show_db:
+        from vasp.mongo import MongoDatabase
+        db = MongoDatabase()
+        import pprint
+        pprint
+
+        c = db.find({"calculator.path": calc.directory})
+
+        if c.count() == 0:
+            print('No entry found')
+        else:
+            print('Found {} entries.'.format(c.count()))
+            for entry in c:
+                pprint.pprint(entry)
+
+    if args.mongo_rm:
+        from vasp.mongo import MongoDatabase
+        db = MongoDatabase()
+        db.collection.remove({"calculator.path": calc.directory})

@@ -15,27 +15,40 @@ from ase.calculators.calculator import Calculator
 from ase.calculators.calculator import FileIOCalculator
 from ase.calculators.calculator import PropertyNotImplementedError
 from ase.io import read
+from ase.io.jsonio import encode
+import json
 
 # internal modules
-from . import exceptions
-from . import validate
+
+import vasp
+import vasp.exceptions
+from vasp import validate
 from .vasprc import VASPRC
 from .vasp import log
+
+# This is a temporary variable used below to avoid pep8 long line
+# errors
+nimp = ase.calculators.calculator.PropertyNotImplementedError
 
 
 def VaspExceptionHandler(calc, exc_type, exc_value, exc_traceback):
     """Handle exceptions."""
-    if exc_type == exceptions.VaspSubmitted:
+    if exc_type == vasp.exceptions.VaspSubmitted:
         print(exc_value)
         return None
-    elif exc_type == exceptions.VaspQueued:
+    elif exc_type == vasp.exceptions.VaspQueued:
         print(exc_value)
         return None
-    elif exc_type == KeyError and exc_value.args[0] == 'energy':
+
+    # This is the new ase 3.13 and Python3 exceptions below here.
+    elif (exc_type == nimp and
+          exc_value.args[0] == 'energy not present in this calculation'):
         return None
-    elif exc_type == KeyError and exc_value.args[0] == 'forces':
+    elif (exc_type == nimp and
+          exc_value.args[0] == 'forces not present in this calculation'):
         return np.array([[None, None, None] for atom in calc.get_atoms()])
-    elif exc_type == KeyError and exc_value.args[0] == 'stress':
+    elif (exc_type == nimp and
+          exc_value.args[0] == 'stress not present in this calculation'):
         return np.array([None, None, None, None, None, None])
     elif exc_type == PropertyNotImplementedError and exc_value.args[0] == 'energy':
         return None
@@ -44,7 +57,8 @@ def VaspExceptionHandler(calc, exc_type, exc_value, exc_traceback):
     elif exc_type == PropertyNotImplementedError and exc_value.args[0] == 'stress':
         return np.array([None, None, None, None, None, None])    
 
-    print('Unhandled Vasp exception in {0}'.format(calc.directory))
+    print('Unhandled exception in Vasp: {}'.format(exc_type))
+
     import traceback
     import sys
     traceback.print_exception(exc_type, exc_value, exc_traceback,
@@ -63,7 +77,7 @@ class Vasp(FileIOCalculator, object):
     $VASP_PP_PATH/potpaw_GGA
 
     """
-    version = "0.9.3"
+    version = "1.0"
     name = 'VASP'
     command = None
     debug = None
@@ -128,8 +142,7 @@ class Vasp(FileIOCalculator, object):
     special_kwargs = ['xc',  # sets vasp tags for the exc-functional
                       'pp',  # determines where POTCARs are retrieved from
                       'setups',
-                      # kpoints
-                      'kpts',
+                      'kpts',  # kpoints setup
                       'gamma',
                       'kpts_nintersections',
                       'reciprocal',
@@ -211,25 +224,29 @@ class Vasp(FileIOCalculator, object):
                       'O':{'L':-1, 'U':0.0, 'J':0.0}},
 
         """
+        self.kwargs = kwargs
+
         # set first so self.directory is right
         self.set_label(label)
         self.debug = debug
         if debug is not None:
             log.setLevel(debug)
-        self.exception_handler = exception_handler
+            self.exception_handler = exception_handler
 
         self.neb = None
         # We have to check for the type here this because an NEB uses
         # a list of atoms objects. We set pbc to be True because that
-        # is what is read in from files, and if we don't the atoms
-        # look incompatible.
+        # is what is read in from files, and if we don't want the
+        # atoms look incompatible.
         if atoms is not None and isinstance(atoms, ase.atoms.Atoms):
             atoms.pbc = [True, True, True]
         elif atoms is not None:
             for a in atoms:
                 a.pbc = [True, True, True]
-            self.neb = True
+                self.neb = True
 
+        # self.neb started as None, and will not be None if the code
+        # above detects a list of atoms.
         if self.neb is not None:
             self.neb = atoms
 
@@ -251,7 +268,8 @@ class Vasp(FileIOCalculator, object):
         # system here.
 
         # Add default parameters if they aren't set otherwise.
-        for key, val in list(Vasp.default_parameters.items()):
+
+        for key, val in Vasp.default_parameters.items():
             if key not in kwargs and key not in self.parameters:
                 kwargs[key] = val
 
@@ -263,12 +281,6 @@ class Vasp(FileIOCalculator, object):
             del kwargs['ispin']
         else:
             ispin = None
-
-        if 'rwigs' in kwargs:
-            rwigs = kwargs['rwigs']
-            del kwargs['rwigs']
-        else:
-            rwigs = None
 
         if 'ldau_luj' in kwargs:
             ldau_luj = kwargs['ldau_luj']
@@ -295,19 +307,16 @@ class Vasp(FileIOCalculator, object):
             aimm = atoms.get_initial_magnetic_moments()
             self.atoms.set_initial_magnetic_moments(aimm)
 
-        # These depend on having atoms already.
+        # These depend on having atoms already so we set them here.
         if ispin is not None:
             self.set(**self.set_ispin_dict(ispin))
-
-        if rwigs is not None:
-            self.set(**self.set_rwigs_dict(rwigs))
 
         if ldau_luj is not None:
             self.set(**self.set_ldau_luj_dict(ldau_luj))
 
         # Finally run validate functions
         if VASPRC['validate']:
-            for key, val in list(self.parameters.items()):
+            for key, val in self.parameters.items():
                 if key in validate.__dict__:
                     f = validate.__dict__[key]
                     f(self, val)
@@ -368,8 +377,8 @@ class Vasp(FileIOCalculator, object):
             ppp += [[symbol,
                      'potpaw_{}/{}{}/POTCAR'.format(pp, symbol, setup[1]),
                      count]]
-        # now the remaining atoms use default potentials
-        # First get the chemical symbols that remain
+            # now the remaining atoms use default potentials
+            # First get the chemical symbols that remain
         symbols = []
         for atom in atoms or []:
             if atom.symbol not in symbols:
@@ -404,23 +413,24 @@ class Vasp(FileIOCalculator, object):
         # stored and calculated here.  We check here to see if we are
         # consistent, and if not fix the issue. This should only occur
         # once.
-        if (self.resort is not None
-            and self.get_db('resort') is not None
-            and self.resort != list(self.get_db('resort'))):
-            ns =  [k[1] for k in
-                   sorted([[j, i]
-                           for i, j in enumerate(self.get_db('resort'))])]
+        if (self.resort is not None and
+            self.get_db('resort') is not None and
+            self.resort != list(self.get_db('resort'))):
+            ns = [k[1] for k in
+                  sorted([[j, i]
+                          for i, j in enumerate(self.get_db('resort'))])]
             from ase.db import connect
             with connect(os.path.join(self.directory, 'DB.db')) as con:
                 tatoms = con.get_atoms(id=1)
-            self.write_db(atoms=tatoms, data={'resort': ns})
-            print(('Fixed resort issue in {}. '
-                  'You should not see this message'
-                  ' again'.format(self.directory)))
-            self.resort = ns
-            sort_indices = [k[1] for k in
-                            sorted([[j, i]
-                                    for i, j in enumerate(ns)])]
+
+                self.write_db(atoms=tatoms, data={'resort': ns})
+                print('Fixed resort issue in {}. '
+                      'You should not see this message'
+                      ' again'.format(self.directory))
+                self.resort = ns
+                sort_indices = [k[1] for k in
+                                sorted([[j, i]
+                                        for i, j in enumerate(ns)])]
 
         self.ppp_list = ppp
         self.atoms_sorted = atoms[sort_indices]
@@ -459,7 +469,7 @@ class Vasp(FileIOCalculator, object):
         """
         s = ['\n', 'Vasp calculation directory:']
         s += ['---------------------------']
-        s += ['  [[{self.directory}]]']
+        s += ['  [[{self.directory}]]'.format(self=self)]
 
         atoms = self.get_atoms()
         cell = atoms.get_cell()
@@ -514,6 +524,7 @@ class Vasp(FileIOCalculator, object):
 
         forces = self.results.get('forces', np.array([[np.nan, np.nan, np.nan]
                                                       for atom in self.atoms]))
+
         for i, atom in enumerate(atoms):
             rms_f = np.sum(forces[i] ** 2) ** 0.5
 
@@ -537,17 +548,20 @@ class Vasp(FileIOCalculator, object):
         #########################
         s += ['\nINPUT Parameters:']
         s += ['-----------------']
-        for key, value in list(self.parameters.items()):
+
+        for key, value in self.parameters.items():
+
             s += ['  {0:<10}: {1}'.format(key, value)]
 
         # Format pseudo-potential output
         #########################
         s += ['\nPseudopotentials used:']
         s += ['----------------------']
+
         for sym, ppp, hash in self.get_pseudopotentials():
             s += ['  {}: {} (git-hash: {})'.format(sym, ppp, hash)]
 
-        return '\n'.join(s).format(self=self)
+        return '\n'.join(s)
 
     def set_label(self, label):
         """Set working directory.
@@ -594,6 +608,20 @@ class Vasp(FileIOCalculator, object):
         # Check if the parameters have changed
         file_params = {}
         file_params.update(self.read_incar())
+
+        if 'rwigs' in file_params:
+            # This gets read as a list.
+            with open(self.potcar) as f:
+                lines = f.readlines()
+
+            # symbols are in the # FIXME: first line of each potcar
+            symbols = [lines[0].split()[1]]
+            for i, line in enumerate(lines):
+                if 'End of Dataset' in line and i != len(lines) - 1:
+                    symbols += [lines[i + 1].split()[1]]
+
+            file_params['rwigs'] = dict(list(zip(symbols,
+                                                 file_params['rwigs'])))
         file_params.update(self.read_potcar())
         file_params.update(self.read_kpoints())
 
@@ -736,9 +764,9 @@ class Vasp(FileIOCalculator, object):
 
         # Check for NEB first.
         if (np.array([os.path.exists(os.path.join(self.directory, f))
-                      for f in ['INCAR', 'POTCAR']]).all()
-            and not os.path.exists(os.path.join(self.directory, 'POSCAR'))
-            and os.path.isdir(os.path.join(self.directory, '00'))):
+                      for f in ['INCAR', 'POTCAR']]).all() and
+            not os.path.exists(os.path.join(self.directory, 'POSCAR')) and
+            os.path.isdir(os.path.join(self.directory, '00'))):
             return Vasp.NEB
 
         # Some input does not exist
@@ -747,9 +775,9 @@ class Vasp(FileIOCalculator, object):
             return Vasp.EMPTY
 
         # Input files exist, but no jobid, and no output
-        if (np.array(base_input).all()
-            and self.get_db('jobid') is not None
-            and not os.path.exists(os.path.join(self.directory, 'OUTCAR'))):
+        if (np.array(base_input).all() and
+            self.get_db('jobid') is not None and
+            not os.path.exists(os.path.join(self.directory, 'OUTCAR'))):
             return Vasp.NEW
 
         # INPUT files exist, a jobid in the queue
@@ -789,6 +817,47 @@ class Vasp(FileIOCalculator, object):
         self.update()
         atoms = self.get_atoms()
         return atoms.get_potential_energy()
+
+    @property
+    def energy(self):
+        """Returns the potential energy"""
+        return self.potential_energy
+
+    @property
+    def free_energy(self):
+        self.update()
+        atoms = self.get_atoms()
+        return atoms.get_potential_energy(force_consistent=True)
+
+    @property
+    def magmom(self):
+        self.update()
+        atoms = self.get_atoms()
+        return atoms.get_magnetic_moment()
+
+    @property
+    def magmoms(self):
+        self.update()
+        atoms = self.get_atoms()
+        return atoms.get_magnetic_moments()
+
+    @property
+    def charge(self):
+        self.update()
+        atoms = self.get_atoms()
+        return sum(atoms.get_charges())
+
+    @property
+    def charges(self):
+        self.update()
+        atoms = self.get_atoms()
+        return atoms.get_charges()
+
+    @property
+    def dipole(self):
+        self.update()
+        atoms = self.get_atoms()
+        return atoms.get_dipole_moment()
 
     @property
     def forces(self, apply_constraints=False):
@@ -892,11 +961,12 @@ class Vasp(FileIOCalculator, object):
                 f = validate.__dict__[key]
                 d = f.__doc__ or 'No docstring found.'
                 print(('{} = {}:'.format(key, self.parameters[key])))
-                if int:
+
+                if long:
                     print(('  ' + d))
                 else:
                     print(('  ' + d.split('\n')[0]))
-                print('')
+                    print('')
 
     @property
     def ready(self):
@@ -1026,3 +1096,72 @@ class Vasp(FileIOCalculator, object):
         else:
             while not self.ready:
                 time.sleep(poll_interval)
+
+    def todict(self):
+        """Convert calculator to a dictionary.
+
+        This is most useful for serializing or adding to a Mongo database. This
+        does not include the atoms object. It can fail on self.kwargs, if that
+        contains non-serializable data, usually those are np.arrays.
+
+        This should store the user, path, a list of directories in the
+        path, the kwargs, parameters, pseudopotentials, calculated
+        properties, and some convenience properties.
+
+        Note: I use json.loads(encode(p)) from ase.io.jsonio to make sure
+        we get serializable dictionaries here.
+
+        """
+        from collections import OrderedDict
+
+        import os
+
+        # split the path by directory as a kind of set of tags.
+        path, folder = self.directory, ''
+        folders = []
+        while path != '/':
+            if folder != '':
+                folders.append(folder)
+
+            path, folder = os.path.split(path)
+
+        d = OrderedDict(name='Vasp',
+                        path=self.directory,
+                        pathtags=folders)
+
+        d.update(parameters=self.parameters)
+        d.update(potcars=list(self.get_pseudopotentials()))
+        for prop in self.implemented_properties:
+            val = self.results.get(prop, None)
+            d[prop] = val
+
+        f = self.results.get('forces', None)
+        if f is not None:
+            d['fmax'] = max(np.abs(f.flatten()))
+
+        s = self.results.get('stress', None)
+        if s is not None:
+            d['smax'] = max(np.abs(s.flatten()))
+
+        # NEBs remain a difficult issue. The root directory does not
+        # have an OUTCAR so many of these don't work. Also, there is
+        # not an obvious atoms to attach to it, or an obvious energy.
+        # I compromise here and just store the images and energy.
+        if not self.neb:
+            d['elapsed-time'] = self.get_elapsed_time()
+            d['memory-used'] = self.get_memory()
+            d['nionic-steps'] = self.get_number_of_ionic_steps()
+            program, version, subversion, rd, rt = self.get_program_info()
+            d['program'] = program
+            d['version'] = version
+            d['subversion'] = subversion
+            d['run-date'] = rd
+            d['run-time'] = rt
+
+        #if self.neb:
+        #    images, energies = self.get_neb()
+        #    d['energy'] = energies
+        #    from .mongo import mongo_atoms_doc
+        #    d['images'] = [mongo_atoms_doc(atoms) for atoms in images]
+
+        return json.loads(encode(d))

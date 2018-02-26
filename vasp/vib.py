@@ -2,15 +2,16 @@
 
 import os
 import numpy as np
-from . import vasp
-from .vasp import log
+
+import vasp
+from .vasp import log, Vasp
 from .monkeypatch import monkeypatch_class
 
 from ase.data import atomic_masses
 from ase.io import read
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def get_vibrational_modes(self,
                           mode=None,
                           massweighted=False,
@@ -152,7 +153,7 @@ def get_vibrational_modes(self,
     return retval
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def get_vibrational_frequencies(self):
     """Returns an array of frequencies in wavenumbers.
 
@@ -191,7 +192,7 @@ def get_vibrational_frequencies(self):
     return frequencies
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def get_infrared_intensities(self):
     """Calculate infrared intensities of vibrational modes.
 
@@ -260,9 +261,9 @@ def get_infrared_intensities(self):
 
     EIG_NVIBS = 0
     for line in alllines[i:]:
-        if ('f' in line
-            and 'THz' in line
-            and 'cm-1' in line):
+        if ('f' in line and
+            'THz' in line and
+            'cm-1' in line):
             EIG_NVIBS += 1
 
     EIG_NIONS = BORN_NROWS
