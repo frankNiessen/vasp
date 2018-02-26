@@ -135,10 +135,7 @@ def read_kpoints(self, fname=None):
                                       'for restart.')
         if ktype == 'g':
             line5 = np.array([float(lines[4].split()[i]) for i in range(3)])
-            if (line5 == np.array([0.0, 0.0, 0.0])).all():
-                params['gamma'] = True
-            else:
-                params['gamma'] = line5
+            params['gamma'] = list(line5)
 
         kpts = [int(lines[3].split()[i]) for i in range(3)]
         params['kpts'] = kpts
@@ -230,7 +227,7 @@ def read_atoms(self):
     """
     atoms = None
     resort = self.get_db('resort')
-    # for a new calculation resort will be None
+    # for a new or pre-vasp calculation resort will be None
     if resort is not None:
         resort = list(resort)
         from ase.db import connect
@@ -240,16 +237,20 @@ def read_atoms(self):
     else:
         tags = None
 
+    log.debug('resort = {}'.format(resort))
+
     vasprun_xml = os.path.join(self.directory,
                                'vasprun.xml')
     if os.path.exists(vasprun_xml):
         atoms = ase.io.read(vasprun_xml)
-        atoms = atoms[resort]
+        if resort is not None:
+            atoms = atoms[resort]
         atoms.set_tags(tags)
     elif os.path.exists(os.path.join(self.directory, 'POSCAR')):
         atoms = ase.io.read(os.path.join(self.directory,
                                          'POSCAR'))
-        atoms = atoms[resort]
+        if resort is not None:
+            atoms = atoms[resort]
         atoms.set_tags(tags)
     return atoms
 
@@ -320,6 +321,20 @@ def read(self, restart=None):
 
         self.parameters['ldau_luj'] = ldau_luj
 
+    # rebuild the list to a dictionary. It gets read in at a time
+    # where there are no atoms.
+    if 'rwigs' in self.parameters:
+        with open(self.potcar) as f:
+            lines = f.readlines()
+
+        # symbols are in the # FIXME: first line of each potcar
+        symbols = [lines[0].split()[1]]
+        for i, line in enumerate(lines):
+            if 'End of Dataset' in line and i != len(lines) - 1:
+                symbols += [lines[i + 1].split()[1]]
+
+        self.parameters['rwigs'] = dict(zip(symbols, self.parameters['rwigs']))
+
     # Now get the atoms
     atoms = self.read_atoms()
     self.atoms = atoms
@@ -368,10 +383,10 @@ def read_results(self):
         forces = atoms.get_forces()  # needs to be resorted
         try:
             stress = atoms.get_stress()
-        except NotImplementedError:
+        except PropertyNotImplementedError:
             # e.g. ISIF=0, stress is not computed
-            stress = None
-            
+            stress = np.array([np.nan] * 6)
+
         if self.atoms is None:
             self.sort_atoms(atoms)
 
@@ -423,7 +438,9 @@ def read_neb(self):
     self.parameters = {}
     self.set(images=(len(atoms) - 2))
     self.atoms = atoms[0].copy()
-
+    self.atoms.set_calculator(self)
+    for a in self.neb:
+        a.set_calculator(self)
     if os.path.exists(self.incar):
         self.parameters.update(self.read_incar())
     if os.path.exists(self.potcar):

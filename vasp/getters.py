@@ -1,6 +1,7 @@
 import os
 import re
 from hashlib import sha1
+import warnings
 
 import numpy as np
 from xml.etree import ElementTree
@@ -246,9 +247,12 @@ def get_ados(self, atom_index, orbital, spin=1, efermi=None):
 @monkeypatch_class(vasp.Vasp)
 def get_elapsed_time(self):
     """Return elapsed calculation time in seconds from the OUTCAR file."""
-    self.update()
+
     import re
     regexp = re.compile('Elapsed time \(sec\):\s*(?P<time>[0-9]*\.[0-9]*)')
+
+    if not os.path.exists(os.path.join(self.directory, 'OUTCAR')):
+        return None
 
     with open(os.path.join(self.directory, 'OUTCAR')) as f:
         lines = f.readlines()
@@ -360,14 +364,18 @@ def get_charge_density(self, spin=0, filename=None):
     self.update()
 
     if not self.parameters.get('lcharg', False):
-        raise Exception('CHG was not written. Set lcharg=True')
+        warnings.warn('CHG was not written.'
+                      'Set lcharg=True to get the charge density.')
+        return None, None, None, None
 
     if filename is None:
         filename = os.path.join(self.directory, 'CHG')
 
-    x, y, z, data = get_volumetric_data(self, filename=filename)
-    return x, y, z, data[spin]
-
+    if os.path.exists(filename):
+        x, y, z, data = get_volumetric_data(self, filename=filename)
+        return x, y, z, data[spin]
+    else:
+        return None, None, None, None
 
 @monkeypatch_class(vasp.Vasp)
 def get_local_potential(self):
@@ -444,7 +452,11 @@ def get_dipole_vector(self, atoms=None):
     except (IOError, IndexError):
         # IOError: no CHG file, function called outside context manager
         # IndexError: Empty CHG file, Vasp run with lcharg=False
-        return None
+        return None, None, None
+
+    if None in (x, y, z, cd):
+        warnings.warn('No CHG found.')
+        return None, None, None
 
     n0, n1, n2 = cd.shape
 
@@ -498,6 +510,9 @@ def get_dipole_moment(self, atoms=None):
     self.update()
 
     dv = self.get_dipole_vector(atoms)
+
+    if dv is None or None in dv:
+        return None
 
     from ase.units import Debye
     return ((dv ** 2).sum()) ** 0.5 / Debye
@@ -586,7 +601,9 @@ def get_orbital_occupations(self):
 @monkeypatch_class(vasp.Vasp)
 def get_number_of_ionic_steps(self):
     """Returns number of ionic steps from the OUTCAR."""
-    self.update()
+
+    if not os.path.exists(os.path.join(self.directory, 'OUTCAR')):
+        return None
 
     nsteps = None
     for line in open(os.path.join(self.directory, 'OUTCAR')):
@@ -641,3 +658,20 @@ def get_charges(self, atoms=None):
         return self._calculated_charges
     else:
         return None
+
+
+@monkeypatch_class(vasp.Vasp)
+def get_program_info(self):
+    """Return data about the vasp that was used for the calculation."""
+    if not os.path.exists(os.path.join(self.directory, 'vasprun.xml')):
+        return None, None, None, None, None
+
+    with open(os.path.join(self.directory, 'vasprun.xml')) as f:
+        tree = ElementTree.parse(f)
+        program = tree.find("generator/i[@name='program']").text
+        version = tree.find("generator/i[@name='version']").text
+        subversion = tree.find("generator/i[@name='subversion']").text
+        rundate = tree.find("generator/i[@name='date']").text
+        runtime = tree.find("generator/i[@name='time']").text
+        return(program, version, subversion, rundate, runtime)
+
