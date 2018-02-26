@@ -78,10 +78,10 @@ def set_ispin_dict(self, val):
         return d
     elif val == 2:
         d = {'ispin': 2}
-        # Just use default magmom
-        if 'magmom' not in self.parameters:
-            d['magmom'] = [atom.magmom for atom
-                           in self.atoms[self.resort]]
+        ##PM: Just use VASP default for magmom
+        #if 'magmom' not in self.parameters:
+        #    d['magmom'] = [atom.magmom for atom
+        #                   in self.atoms[self.resort]]
         # print out individual magnetic moments.
         if 'lorbit' not in self.parameters:
             d['lorbit'] = 11

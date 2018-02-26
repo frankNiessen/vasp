@@ -238,7 +238,7 @@ def get_ados(self, atom_index, orbital, spin=1, efermi=None):
             ados = np.array([x[orbitals.index('dxy') + 1] for x in results]) + \
                    np.array([x[orbitals.index('dyz') + 1] for x in results]) + \
                    np.array([x[orbitals.index('dz2') + 1] for x in results]) + \
-                   np.array([x[orbitals.index('dxz') + 1] for x in results]) + \                   
+                   np.array([x[orbitals.index('dxz') + 1] for x in results]) + \
                    np.array([x[orbitals.index('dx2') + 1] for x in results])
     return [energy, ados]
 
