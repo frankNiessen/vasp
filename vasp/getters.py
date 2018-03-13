@@ -635,7 +635,7 @@ def get_charges(self, atoms=None):
         return None
 
 
-@monkeypatch_class(vasp.Vasp)
+@monkeypatch_class(Vasp)
 def get_property(self, name, atoms=None, allow_calculation=True):
     '''
     This is copied from ase.calculators.calculator with the
