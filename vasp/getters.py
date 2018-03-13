@@ -5,17 +5,11 @@ import warnings
 
 import numpy as np
 from xml.etree import ElementTree
-<<<<<<< HEAD
-from . import vasp
-from .vasp import log
-from .monkeypatch import monkeypatch_class
 from ase.calculators.calculator import PropertyNotImplementedError
-=======
 import vasp
 from .vasp import log, Vasp
 from .monkeypatch import monkeypatch_class
 
->>>>>>> upstream/python3
 
 @monkeypatch_class(Vasp)
 def get_db(self, *keys):
@@ -36,17 +30,11 @@ def get_db(self, *keys):
         try:
             at = con.get(id=1)
             for i, key in enumerate(keys):
-<<<<<<< HEAD
-                vals[i] = (at.key_value_pairs.get(key, None)
-                           or at.data.get(key, None))
-        except KeyError as e:
-            if e.args[0] == 'no match':
-=======
                 vals[i] = (at.key_value_pairs.get(key, None) or
                            at.data.get(key, None))
         except KeyError as e:
             if e == 'no match':
->>>>>>> upstream/python3
+
                 pass
     return vals if len(vals) > 1 else vals[0]
 
@@ -516,18 +504,10 @@ def get_pseudopotentials(self):
         with open(os.path.join(vasp_pp_path, ppp), 'r',
                   encoding='utf-8') as f:
             data = f.read()
-<<<<<<< HEAD
-        s = sha1()
-        s.update(b"blob %u\0" % len(data))
-        s.update(data.encode())
-        hashes.append(s.hexdigest())
-=======
-
             s = sha1()
             s.update("blob %u\0".format(len(data)).encode('utf-8'))
             s.update(data.encode('utf-8'))
             hashes.append(s.hexdigest())
->>>>>>> upstream/python3
 
     return list(zip(symbols, paths, hashes))
 
@@ -638,11 +618,7 @@ def get_composition(self, basis=None):
         return S
 
 
-<<<<<<< HEAD
-@monkeypatch_class(vasp.Vasp)
-=======
 @monkeypatch_class(Vasp)
->>>>>>> upstream/python3
 def get_charges(self, atoms=None):
     '''
     Returns a list of cached charges from a previous

@@ -177,11 +177,7 @@ def write_incar(self, incar=None):
 
     with open(incar, 'w') as f:
         f.write('INCAR created by Atomic Simulation Environment\n')
-<<<<<<< HEAD
-        for key, val in list(d.items()):
-=======
         for key, val in d.items():
->>>>>>> upstream/python3
             key = ' ' + key.upper()
             if val is None:
                 # Do not write out None values
