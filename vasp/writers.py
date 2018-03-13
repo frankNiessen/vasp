@@ -8,13 +8,8 @@ monkey-patched onto the Vasp class as if it were defined in vasp.py.
 """
 import os
 import numpy as np
-<<<<<<< HEAD
-from . import vasp
-from .monkeypatch import monkeypatch_class
-=======
 from .vasp import Vasp, log
 from vasp.monkeypatch import monkeypatch_class
->>>>>>> upstream/python3
 from ase.calculators.calculator import FileIOCalculator
 
 
