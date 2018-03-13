@@ -24,7 +24,7 @@ def getstatusoutput(*args, **kwargs):
     """
     p = subprocess.Popen(*args, **kwargs)
     stdout, stderr = p.communicate()
-    return (p.returncode, stdout.decode('utf-8'), stderr.decode('utf-8'))
+    return (p.returncode, stdout, stderr)
 
 
 @monkeypatch_class(Vasp)
