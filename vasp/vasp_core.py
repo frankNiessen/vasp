@@ -231,7 +231,7 @@ class Vasp(FileIOCalculator, object):
         self.debug = debug
         if debug is not None:
             log.setLevel(debug)
-            self.exception_handler = exception_handler
+        self.exception_handler = exception_handler
 
         self.neb = None
         # We have to check for the type here this because an NEB uses
