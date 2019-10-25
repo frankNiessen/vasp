@@ -17,7 +17,7 @@ multiprocessing.cores_per_process = None
 
 scheduler = SLURM
 queue.shell= bash
-queue.command = sbatch
+queue.command = srun
 queue.time = 1:00:00
 queue.partition = short
 queue.nodes = 1
