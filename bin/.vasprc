@@ -1,0 +1,32 @@
+	
+# adjust these for the your system
+
+vasp.executable.serial = vasp
+vasp.executable.parallel = vasp
+
+user.name = jcrum
+user.email = jcrum@nd.edu
+
+
+mode = queue   # run|queue|None
+
+multiprocessing.cores_per_process = None
+
+
+# these are only needed if you run in a queue. Setting a few defaults here. SGE needs nprocs, q, pe.
+
+scheduler = SLURM
+queue.shell= bash
+queue.command = sbatch
+queue.options = -j y
+queue.time = 168:00:00
+queue.nodes = 1
+queue.ppn = 1
+queue.nprocs = 28
+queue.mem = 2G
+queue.jobname = None
+queue.account_number = 99999999
+queue.q = *@@schneider_d24cepyc. # I don't think you guys need this. 
+queue.pe = mpi-48. # I don't think you need this either.
+vdw_kernel.bindat = /afs/crc.nd.edu/x86_64_linux/vasp/5.3.5/ompi1.6.3/vdw_kernel.bindat
+module=vasp/5.4.1
