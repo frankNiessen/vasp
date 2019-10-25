@@ -278,7 +278,6 @@ runvasp.py     # this is the vasp command
         cmdlist = ['{0}'.format(VASPRC['queue.command'])]
         cmdlist += ['-D', VASPDIR]
         cmdlist += ['-job-name', '{0}'.format(jobname),
-                    '-M', '{0}'.format(VASPRC['queue.q']),
                     '-N', '{0}'.format(VASPRC['queue.nodes']),
                     '-t', '{0}'.format(VASPRC['queue.time']),
                     '-p', '{0}'.format('normal'),
