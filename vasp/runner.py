@@ -270,14 +270,13 @@ runvasp.py     # this is the vasp command
         f.close()
 
         log.debug('{0} will be the jobname.'.format(jobname))
-        log.debug('-pe {0} {1}'.format(VASPRC['queue.pe'],
-                                       VASPRC['queue.nprocs']))
+        '''log.debug('-pe {0} {1}'.format(VASPRC['queue.pe'],
+                                       VASPRC['queue.nprocs']))'''
 
-        log.debug('-q {0}'.format(VASPRC['queue.q']))
+        '''log.debug('-q {0}'.format(VASPRC['queue.q']))'''
 
         cmdlist = ['{0}'.format(VASPRC['queue.command'])]
-        cmdlist += ['-o', VASPDIR]
-        cmdlist += [option for option in VASPRC['queue.options'].split()]
+        cmdlist += ['-D', VASPDIR]
         cmdlist += ['-job-name', '{0}'.format(jobname),
                     '-M', '{0}'.format(VASPRC['queue.q']),
                     '-N', '{0}'.format(VASPRC['queue.nodes']),
