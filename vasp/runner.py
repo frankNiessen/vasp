@@ -264,7 +264,7 @@ runvasp.py     # this is the vasp command
 
 
     if out == b'' or err != b'':
-        raise Exception('something went wrong in srun:\n\n{0}'.format(err))
+        raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
 
     if VASPRC['scheduler'] == 'SGE':    
         jobid = out.split()[2]
