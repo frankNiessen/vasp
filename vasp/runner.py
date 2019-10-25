@@ -282,8 +282,8 @@ runvasp.py     # this is the vasp command
                     '-N', '{0}'.format(VASPRC['queue.nodes']),
                     '-t', '{0}'.format(VASPRC['queue.time']),
                     '-p', '{0}'.format('normal'),
-                    '-A', '{0}'.format(VASPRC['queue.account_number'])
-                    '--ntasks-per-node', '{0}.format(VASPRC['queue.nprocs'])]
+                    '-A', '{0}'.format(VASPRC['queue.account_number']),
+                    '--ntasks-per-node', '{0}'.format(VASPRC['queue.nprocs'])]
                     
 
         cmdlist += [qscript]
