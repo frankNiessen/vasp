@@ -38,6 +38,8 @@ elif 'PE_HOSTFILE' in os.environ:
         print('Running "{}"'.format(parcmd))
         exitcode = os.system(parcmd)        
 
+elif VASPRC['scheduler']='SLURM':
+    parcmd = 'mpirun -n %i vasp_std > vasp.out' % (VASPRC['queue.nprocs'])
 else:
     # probably running at cmd line, in serial.
     exitcode = os.system(serial_vasp)
