@@ -2,7 +2,7 @@
 #+date: May 4, 2016
 
 * Note: 
-This is an updated branch of John Kitchin's vasp wrapper. This version works with Python 3, and the SGE/UGE/SLURM job schedulers. The only thing that should need to be edited is the .vasprc file where you can include the details of your scheduler. Many thanks to Elsa Konickx at Northwestern and Jianren Lim at Notre Dame for their assistance in getting this to work. 
+This is an updated branch of John Kitchin's vasp wrapper. This version works with Python 3, and the SGE/UGE/SLURM job schedulers. The only thing that should need to be edited is the .vasprc file where you can include the details of your scheduler. Many thanks to Elsa Konickx at Northwestern and Jian Ren Lim at Notre Dame for their assistance in getting this to work. 
 
 * Why?
 To make it compliant with the FileIOCalculator in ase, and hopefully simplify it.
