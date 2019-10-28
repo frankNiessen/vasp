@@ -1,8 +1,8 @@
 	
 # adjust these for the your system
 
-vasp.executable.serial = vasp_std
-vasp.executable.parallel = vasp_std
+vasp.executable.serial = vasp_gam_vtst
+vasp.executable.parallel = vasp_gam_vtst
 
 user.name = jcrum
 user.email = jcrum@nd.edu
@@ -18,8 +18,8 @@ multiprocessing.cores_per_process = None
 scheduler = SLURM
 queue.shell= bash
 queue.command = srun
-queue.time = 1:00:00
-queue.partition = short
+queue.time = 48:00:00
+queue.partition = normal
 queue.nodes = 1
 queue.ppn = 1
 queue.nprocs = 24
