@@ -646,8 +646,8 @@ def get_property(self, name, atoms=None, allow_calculation=True):
     PropertyNotImplementedError so we can handle it better
     '''
     
-    if name not in self.implemented_properties:
-        raise PropertyNotImplementedError(name)
+    #if name not in self.implemented_properties:
+    #    raise PropertyNotImplementedError(name)
     if atoms is None:
         atoms = self.atoms
         system_changes = []
