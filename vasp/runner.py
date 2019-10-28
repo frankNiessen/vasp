@@ -277,22 +277,23 @@ runvasp.py     # this is the vasp command
 
         cmdlist = ['{0}'.format(VASPRC['queue.command'])]
         cmdlist += ['-D', VASPDIR]
-        cmdlist += ['-job-name', '{0}'.format(jobname),
+        cmdlist += ['--job-name', '{0}'.format(jobname),
                     '-N', '{0}'.format(VASPRC['queue.nodes']),
                     '-t', '{0}'.format(VASPRC['queue.time']),
-                    '-p', '{0}'.format('normal'),
+                    '-p', '{0}'.format(VASPRC['queue.partition']),
                     '-A', '{0}'.format(VASPRC['queue.account_number']),
                     '--ntasks-per-node', '{0}'.format(VASPRC['queue.nprocs'])]
                     
 
         cmdlist += [qscript]
-
+        print(cmdlist)
         log.debug('{0}'.format(' '.join(cmdlist)))
         p = subprocess.Popen(cmdlist,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              universal_newlines=True)
+        
 
         log.debug(script)
         out, err = p.communicate()
@@ -304,7 +305,7 @@ runvasp.py     # this is the vasp command
     if VASPRC['scheduler'] == 'SGE':    
         jobid = out.split()[2]
     elif VASPRC['scheduler'] == 'SLURM':
-        jobid = out.split()[4]
+        jobid = out.split()[3]
     else:
         jobid = out.strip()
 
