@@ -138,7 +138,7 @@ def get_number_of_spins(self):
 
 
 @monkeypatch_class(Vasp)
-def get_eigenvalues(self, kpt=0, spin=1):
+def get_eigenvalues(self, kpt=0, spin=0):
     """Return array of eigenvalues for kpt and spin."""
     self.update()
     with open(os.path.join(self.directory,
@@ -645,7 +645,7 @@ def get_property(self, name, atoms=None, allow_calculation=True):
     only change is to return the name of the property in the
     PropertyNotImplementedError so we can handle it better
     '''
-    
+
     #if name not in self.implemented_properties:
     #    raise PropertyNotImplementedError(name)
     if atoms is None:
@@ -688,3 +688,69 @@ def get_program_info(self):
         runtime = tree.find("generator/i[@name='time']").text
         return(program, version, subversion, rundate, runtime)
 
+@monkeypatch_class(Vasp)
+def get_ediffg(self):
+    '''
+    This will search the INCAR for the value set as ediffg.
+    '''
+    self.update()
+
+    for line in open(os.path.join(self.directory, 'INCAR')):
+        if 'EDIFFG' in line:
+            ediffg = line.split()[2]
+    return ediffg
+
+@monkeypatch_class(Vasp)
+def get_fmax(self):
+    '''
+    This will return the max force felt by any atom in the calculation.
+    '''
+    self.update()
+    forces = self.get_forces()
+    force = []
+    for f in forces:
+        force.append(np.linalg.norm(f))
+    fmax = max(force)
+    return fmax
+
+@monkeypatch_class(Vasp)
+def get_nsw(self):
+    ''' This will search the INCAR for the NSW setting.
+    '''
+    self.update()
+
+    for line in open(os.path.join(self.directory, 'INCAR')):
+        if 'NSW' in line:
+            nsw = line.split()[2]
+    return nsw
+
+@monkeypatch_class(Vasp)
+def postp(self):
+    iters = self.get_number_of_ionic_steps()
+    nsw = self.get_nsw()
+    time = self.get_elapsed_time()
+    ediffg = self.get_ediffg()
+    fmax = self.get_fmax()
+    energy = self.get_potential_energy()
+    fmax = float(fmax)
+    ediffg = float(ediffg)
+    nsw = float(nsw)
+    iters = int(float(iters))
+    #print('Elapsed time: \t\t {0} hrs'.format(time/3600))
+    #print('Potential energy: \t {0} eV'.format(energy))
+    #print('NSW set to: \t\t {0}'.format(nsw))
+    #print('# of iterations: \t {0}'.format(iters))
+    ic = 'Passed'
+    if iters == nsw:
+        print('*********MAX STEPS REACHED, CHECK FORCES*********')
+        ic = 'Failed'
+        print('NSW set to: \t\t {0}'.format(nsw))
+        print('# of iterations: \t {0}'.format(iters))
+    fm = 'Passed'
+    if abs(fmax) > abs(ediffg):
+        print('********MAX FORCE IS GREATER THAN EDIFFG*********')
+        fm = 'Failed'
+        print('EDIFFG set to: \t\t {0} eV/Angstrom'.format(abs(ediffg)))
+        print('Max Force: \t\t {0} eV/Angstrom'.format(fmax))
+
+    return(ic, fm)

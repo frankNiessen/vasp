@@ -76,7 +76,7 @@ def in_queue(self):
                                            universal_newlines=True)
             jobids_in_queue = [line.split()[0]
                                for line in stdout.split('\n')[2:-1]]
-            
+
             if str(jobid) in jobids_in_queue:
                 status, output, error = getstatusoutput(['qstat', '-j', jobid],
                                                         stdout=subprocess.PIPE,
@@ -195,12 +195,14 @@ def calculate(self, atoms=None, properties=['energy'],
     CWD = os.getcwd()
     VASPDIR = self.directory
     module = VASPRC['module']
+    anaconda = VASPRC['anaconda']
     script = """#!/bin/bash
 module load {module}
 
 cd {CWD}
 cd {VASPDIR}  # this is the vasp directory
 
+export PATH={anaconda}:$PATH
 runvasp.py     # this is the vasp command
 #end""".format(**locals())
 
@@ -227,11 +229,11 @@ runvasp.py     # this is the vasp command
                              universal_newlines=True)
 
         log.debug(script)
-        out, err = p.communicate(script)        
+        out, err = p.communicate(script)
 
     elif VASPRC['scheduler'] == 'SGE':
         # SGE does not allow '/' in jobnames
-        jobname = self.jobname.replace('/', '|')
+        jobname = os.path.basename(VASPDIR)
         qscript = os.path.join(VASPDIR, 'qscript')
         f = open(qscript, 'w')
         f.write(script)
@@ -283,7 +285,7 @@ runvasp.py     # this is the vasp command
                     '-p', '{0}'.format(VASPRC['queue.partition']),
                     '-A', '{0}'.format(VASPRC['queue.account_number']),
                     '--ntasks-per-node', '{0}'.format(VASPRC['queue.nprocs'])]
-                    
+
 
         cmdlist += [qscript]
         print(cmdlist)
@@ -293,7 +295,7 @@ runvasp.py     # this is the vasp command
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE,
                              universal_newlines=True)
-        
+
 
         log.debug(script)
         out, err = p.communicate()
@@ -302,7 +304,7 @@ runvasp.py     # this is the vasp command
     if out == b'' or err == b'':
         raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
 
-    if VASPRC['scheduler'] == 'SGE':    
+    if VASPRC['scheduler'] == 'SGE':
         jobid = out.split()[2]
     elif VASPRC['scheduler'] == 'SLURM':
         jobid = out.split()[3]
@@ -311,7 +313,7 @@ runvasp.py     # this is the vasp command
 
     self.write_db(data={'jobid': jobid})
 
-    raise VaspSubmitted('{} submitted: {}'.format(self.directory,
+    raise VaspSubmitted('{} submitted: {}'.format(jobname,
                                                   jobid))
 
 

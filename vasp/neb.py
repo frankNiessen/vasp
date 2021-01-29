@@ -136,9 +136,8 @@ def get_neb(self, npi=1):
     import ase.io
     atoms0 = ase.io.read(os.path.join(self.directory,
                                       '00',
-                                      'DB.db'))
-    energies += [atoms0.get_potential_energy()]
-
+                                      'OUTCAR'))
+    energies = [atoms0.get_potential_energy()]
     for i in range(1, len(self.neb) - 1):
         atoms = ase.io.read(os.path.join(self.directory,
                                          str(i).zfill(2),
@@ -157,7 +156,7 @@ def get_neb(self, npi=1):
         energies += [energy]
 
     fname = os.path.join(self.directory,
-                         '0{}/DB.db'.format(len(self.neb) - 1))
+                         '0{}/OUTCAR'.format(len(self.neb) - 1))
     atoms_end = ase.io.read(fname)
     energies += [atoms_end.get_potential_energy()]
 

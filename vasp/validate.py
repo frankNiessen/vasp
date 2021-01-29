@@ -304,6 +304,16 @@ def ldautype(calc, val):
 
     """
 
+def lepsilon(calc, val):
+    """LEPSILON = .TRUE. determines the static dielectric matrix,
+    ion-clamped piezoelectric tensor and the Born effective charges
+    using density functional perturbation theory.
+
+    http://cms.mpi.univie.ac.at/wiki/index.php/LEPSILON
+
+    """
+    assert val in [True, False]
+
 
 def lmaxmix(calc, val):
     """LMAXMIX the max l-quantum number the charge densities used. (int)
@@ -472,6 +482,22 @@ def nelm(calc, val):
 
     assert isinstance(val, int)
 
+def nfree(calc, val):
+    """NFREE specifies the number of remembered steps in the history
+    of ionic convergence runs, or the number of ionic displacements
+    in frozen phonon calculations.
+
+    https://www.vasp.at/wiki/wiki/index.php/NFREE
+
+    """
+    assert isinstance(val,int)
+
+def npar(calc, val):
+    """npar should be set to the approximate square root of the number of cores your
+
+    job is requesting"""
+    assert isinstance(val, int)
+
 
 def nupdown(calc, val):
     """NUPDOWN = difference between number of spin up and down electrons.
@@ -503,6 +529,14 @@ def nsw(calc, val):
     """
     assert isinstance(val, int)
 
+
+def nwrite(calc, val):
+    """This flag determines how much will be written to the file OUTCAR ('verbosity flag').
+
+    https://www.vasp.at/wiki/wiki/index.php/NWRITE
+
+    """
+    assert isinstance(val,int)
 
 def potim(calc, val):
     """POTIM sets the time step (MD) or step width scaling (ionic

@@ -55,7 +55,7 @@ def VaspExceptionHandler(calc, exc_type, exc_value, exc_traceback):
     elif exc_type == PropertyNotImplementedError and exc_value.args[0] == 'forces':
         return np.array([[None, None, None] for atom in calc.get_atoms()])
     elif exc_type == PropertyNotImplementedError and exc_value.args[0] == 'stress':
-        return np.array([None, None, None, None, None, None])    
+        return np.array([None, None, None, None, None, None])
 
     print('Unhandled exception in Vasp: {}'.format(exc_type))
 
@@ -581,7 +581,7 @@ class Vasp(FileIOCalculator, object):
             self.jobname = label
             if not os.path.isdir(self.directory):
                 os.makedirs(self.directory)
-        
+
         # Convenient attributes for file names
         for f in ['INCAR', 'POSCAR', 'CONTCAR', 'POTCAR',
                   'KPOINTS', 'OUTCAR']:
