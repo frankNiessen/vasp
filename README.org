@@ -43,6 +43,8 @@ ls -d $VASP_PP_PATH/potpaw_???
 
 * .vasprc
 
+Create the file '.vasprc' in your homedirectory.
+
 This is a file needed to set paramaters for your job scheduler. Below is an example, just replace fields as necessary.
 
 #+BEGIN_SRC python
