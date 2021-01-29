@@ -262,12 +262,50 @@ runvasp.py     # this is the vasp command
         log.debug(script)
         out, err = p.communicate()
 
+    elif VASPRC['scheduler'] == 'SLURM':
+        jobname = os.path.basename(VASPDIR)
+        qscript = os.path.join(VASPDIR, 'qscript')
+        f = open(qscript, 'w')
+        f.write(script)
+        f.close()
 
-    if out == b'' or err != b'':
+        log.debug('{0} will be the jobname.'.format(jobname))
+        '''log.debug('-pe {0} {1}'.format(VASPRC['queue.pe'],
+                                       VASPRC['queue.nprocs']))'''
+
+        '''log.debug('-q {0}'.format(VASPRC['queue.q']))'''
+
+        cmdlist = ['{0}'.format(VASPRC['queue.command'])]
+        cmdlist += ['-D', VASPDIR]
+        cmdlist += ['--job-name', '{0}'.format(jobname),
+                    '-N', '{0}'.format(VASPRC['queue.nodes']),
+                    '-t', '{0}'.format(VASPRC['queue.time']),
+                    '-p', '{0}'.format(VASPRC['queue.partition']),
+                    '-A', '{0}'.format(VASPRC['queue.account_number']),
+                    '--ntasks-per-node', '{0}'.format(VASPRC['queue.nprocs'])]
+                    
+
+        cmdlist += [qscript]
+        print(cmdlist)
+        log.debug('{0}'.format(' '.join(cmdlist)))
+        p = subprocess.Popen(cmdlist,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             universal_newlines=True)
+        
+
+        log.debug(script)
+        out, err = p.communicate()
+
+
+    if out == b'' or err == b'':
         raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
 
     if VASPRC['scheduler'] == 'SGE':    
         jobid = out.split()[2]
+    elif VASPRC['scheduler'] == 'SLURM':
+        jobid = out.split()[3]
     else:
         jobid = out.strip()
 

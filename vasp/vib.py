@@ -2,16 +2,15 @@
 
 import os
 import numpy as np
-
-import vasp
-from .vasp import log, Vasp
+from . import vasp
+from .vasp import log
 from .monkeypatch import monkeypatch_class
 
 from ase.data import atomic_masses
 from ase.io import read
 
 
-@monkeypatch_class(Vasp)
+@monkeypatch_class(vasp.Vasp)
 def get_vibrational_modes(self,
                           mode=None,
                           massweighted=False,
@@ -50,14 +49,16 @@ def get_vibrational_modes(self,
     self.update()
 
     atoms = self.get_atoms()
-
-    if hasattr(atoms, 'constraints') and self.parameters['ibrion'] == 5:
+    
+    if hasattr(atoms, 'constraints') and self.parameters['ibrion'] >= 5:
         # count how many modes to get.
         NMODES = 0
         f = open(os.path.join(self.directory, 'OUTCAR'))
         for line in f:
             if ('f' in line and 'THz' in line and 'cm-1' in line):
                 NMODES += 1
+            elif 'Eigenvectors after division' in line:
+                break
         f.close()
     else:
         NMODES = 3 * len(atoms)
@@ -153,7 +154,7 @@ def get_vibrational_modes(self,
     return retval
 
 
-@monkeypatch_class(Vasp)
+@monkeypatch_class(vasp.Vasp)
 def get_vibrational_frequencies(self):
     """Returns an array of frequencies in wavenumbers.
 
@@ -163,6 +164,7 @@ def get_vibrational_frequencies(self):
     self.update()
     atoms = self.get_atoms()
     N = len(atoms)
+
 
     frequencies = []
 
@@ -183,6 +185,10 @@ def get_vibrational_frequencies(self):
         if 'f/i=' in line:  # imaginary frequency
             # frequency in wave-numbers
             frequencies.append(complex(float(fields[6]), 0j))
+        elif 'Eigenvectors after division' in line:
+            break
+        elif 'POTIM' in line:
+            break
         else:
             frequencies.append(float(fields[7]))
         # now skip 1 one line, a line for each atom, and a blank line
@@ -192,7 +198,7 @@ def get_vibrational_frequencies(self):
     return frequencies
 
 
-@monkeypatch_class(Vasp)
+@monkeypatch_class(vasp.Vasp)
 def get_infrared_intensities(self):
     """Calculate infrared intensities of vibrational modes.
 
@@ -233,7 +239,6 @@ def get_infrared_intensities(self):
     for i, line in enumerate(alllines):
         if 'BORN EFFECTIVE CHARGES' in line:
             break
-
     BORN_MATRICES = []
     i += 2  # skip a line
     for j in range(NIONS):
@@ -261,18 +266,18 @@ def get_infrared_intensities(self):
 
     EIG_NVIBS = 0
     for line in alllines[i:]:
-        if ('f' in line and
-            'THz' in line and
-            'cm-1' in line):
+        if ('f' in line
+            and 'THz' in line
+            and 'cm-1' in line):
             EIG_NVIBS += 1
-
+    
     EIG_NIONS = BORN_NROWS
     # I guess this counts blank rows and non-data rows
     # EIG_NROWS = (EIG_NIONS + 3) * EIG_NVIBS + 3
-
+    
     # i is where the data starts
     i += 6
-
+    
     EIGENVALUES = []
     EIGENVECTORS = []
     for j in range(EIG_NVIBS):
@@ -281,7 +286,7 @@ def get_infrared_intensities(self):
 
         i += 1  # skip the frequency line
         i += 1  # skip the xyz line
-        for k in range(3):
+        for k in range(len(atoms)):
             fields = [float(x) for x in alllines[i].split()]
             mode.append(fields[3:])
             i += 1
@@ -302,13 +307,20 @@ def get_infrared_intensities(self):
     # l is the atom number
     # e_beta is the eigenvector of the mode
 
+    if len(atoms.constraints)>0 and self.parameters['ibrion'] >= 5:
+        fixed=atoms.constraints[0].get_indices()
+        k=[atom.index for atom in atoms if atom.index not in fixed]
+        
+    else:
+        k=[atom.index for atom in atoms]
+    
     intensities = []
-
+    k=np.array(k)
     for mode in range(len(EIGENVECTORS)):
         S = 0  # This is the triple sum
         for alpha in [0, 1, 2]:
             s = 0
-            for l in [0, 1, 2]:  # this is the atom number
+            for l in k:  # this is the atom number
                 for beta in [0, 1, 2]:
                     e = EIGENVECTORS[mode][l]
                     Zab = BORN_MATRICES[l][alpha][beta]
@@ -317,5 +329,5 @@ def get_infrared_intensities(self):
             S += s ** 2
         intensities.append(S)
 
-    intensities = np.array(intensities) / max(intensities)
+    # intensities = np.array(intensities) / max(intensities)
     return intensities
