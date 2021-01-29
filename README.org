@@ -1,8 +1,8 @@
 #+TITLE: A new ASE interface to Vasp
 #+date: May 4, 2016
 
-* Note: 
-This is an updated branch of John Kitchin's vasp wrapper. This version works with Python 3 and the SGE/UGE/SLURM job schedulers. The only thing that should need to be edited is the .vasprc file where you can include the details of your scheduler. Many thanks to Elsa Konickx at Northwestern and Jian Ren Lim at Notre Dame for their assistance in getting this to work. 
+* Note:
+This is an updated branch of John Kitchin's vasp wrapper. This version works with Python 3 and the SGE/UGE/SLURM job schedulers. The only thing that should need to be edited is the .vasprc file where you can include the details of your scheduler. Many thanks to Elsa Konickx at Northwestern and Jian Ren Lim at Notre Dame for their assistance in getting this to work.
 
 * Why?
 To make it compliant with the FileIOCalculator in ase, and hopefully simplify it.
@@ -40,6 +40,44 @@ ls -d $VASP_PP_PATH/potpaw_???
 : /opt/kitchingroup/vasp-5.3.5/potpaw_GGA
 : /opt/kitchingroup/vasp-5.3.5/potpaw_LDA
 : /opt/kitchingroup/vasp-5.3.5/potpaw_PBE
+
+* .vasprc
+
+This is a file needed to set paramaters for your job scheduler. Below is an example, just replace fields as necessary.
+
+#+BEGIN_SRC python
+# adjust these for the your system
+
+vasp.executable.serial = vasp_neb
+vasp.executable.parallel = vasp_neb
+
+user.name = jcrum
+user.email = jcrum@nd.edu
+
+
+mode = queue   # run|queue|None
+
+multiprocessing.cores_per_process = None
+
+
+# these are only needed if you run in a queue. Setting a few defaults here. SGE needs nprocs, q, pe.
+
+scheduler = SGE
+queue.shell= bash
+queue.command = qsub
+queue.options = -j y
+queue.time = 168:00:00
+queue.nodes = 1
+queue.ppn = 1
+queue.nprocs = 48
+queue.mem = 2G
+queue.jobname = None
+queue.q = *@@schneider_d24cepyc
+queue.pe = mpi-48
+vdw_kernel.bindat = /afs/crc.nd.edu/x86_64_linux/vasp/5.3.5/ompi1.6.3/vdw_kernel.bindat
+module=vasp/5.4.1
+anaconda = /afs/crc.nd.edu/user/j/jcrum/anaconda3/bin
+#+END_SRC
 
 * Differences from ase.calculators.vasp
 Most things are the same. Here are few differences.
